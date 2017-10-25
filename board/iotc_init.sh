@@ -13,8 +13,8 @@
 #			<root-dev> - rootfs device
 #			<root-part-end> - last 512b sector of the rootfs
 #
-# When run atumatically (for BBB or RPi), it assumes that iotcrafter init data (up to 512b) is placed 
-# right after the last rootfs sector. The data is copied to $OPROG_DATA file.
+# When run automatically (for BBB or RPi), it assumes that iotcrafter init data (up to 512b) is placed 
+# right after the last rootfs sector. The data is copied to $IOTC_DATA file.
 # Then the data is taken from the file and placed to the respective configuration files:
 #	- board key -> boardconfig.json
 #	- wifi ssid and pass -> /etc/network/instarfaces
@@ -22,15 +22,15 @@
 
 iotc_init_version=1
 
-OPROG_SIGNATURE='iotcrafter.com'
-OPROG_SIGNATURE_LOCAL='softerra.llc'
-OPROG_DATA=/opt/iotc/run/iotcdata.bin
-OPROG_CONNMAN=/opt/iotc/run/iotc.connman
-OPROG_BOARDCONF=/opt/iotc/etc/boardconfig.json
+IOTC_SIGNATURE='iotcrafter.com'
+IOTC_SIGNATURE_LOCAL='softerra.llc'
+IOTC_DATA=/opt/iotc/run/iotcdata.bin
+IOTC_CONNMAN=/opt/iotc/run/iotc.connman
+IOTC_BOARDCONF=/opt/iotc/etc/boardconfig.json
 INTERFACES=/etc/network/interfaces
 BOARD=
 # use ifup even for the system with connman
-OPROG_WLAN_FORCE_IFUP=1
+IOTC_WLAN_FORCE_IFUP=1
 
 CONF_BAK_DIR=/opt/iotc/run/conf.back
 CONF_LOCAL_APT_SOURCE="http:\/\/192.168.101.103\/iotc"
@@ -243,8 +243,8 @@ NetworkInterfaceBlacklist=wlan0
 # $2 - pwd
 wifi_configure_connman()
 {
-	echo "WLAN_SSID='$1'" > $OPROG_CONNMAN
-	echo "WLAN_PWD='$2'" >> $OPROG_CONNMAN
+	echo "WLAN_SSID='$1'" > $IOTC_CONNMAN
+	echo "WLAN_PWD='$2'" >> $IOTC_CONNMAN
 	echo "wifi credentials saved for connman"
 }
 
@@ -255,7 +255,7 @@ setup_key()
 		return
 	fi
 
-	sed -i 's/"key"[^"]*"[^"]*\(".*\)$/"key": "'$1'\1/' $OPROG_BOARDCONF
+	sed -i 's/"key"[^"]*"[^"]*\(".*\)$/"key": "'$1'\1/' $IOTC_BOARDCONF
 	echo "iotc key set up"
 }
 
@@ -268,7 +268,7 @@ setup_network()
 	fi
 
 	if command -v connmand > /dev/null; then
-		if [ "$OPROG_WLAN_FORCE_IFUP" = "1" ]; then
+		if [ "$IOTC_WLAN_FORCE_IFUP" = "1" ]; then
 			wifi_configure_ifup "$1" "$2"
 			wifi_disable_connman
 		else
@@ -279,18 +279,18 @@ setup_network()
 	fi
 }
 
-save_oprog_data()
+save_iotc_data()
 {
-	skipbs=$(($2+1)); dd if=$1 of=$OPROG_DATA bs=512 count=1 skip=$skipbs
+	skipbs=$(($2+1)); dd if=$1 of=$IOTC_DATA bs=512 count=1 skip=$skipbs
 	echo "iotcdata.bin saved"
 }
 
-process_oprog_data()
+process_iotc_data()
 {
-	sed -i 's/"server"[^"]*"[^"]*\(".*\)$/"server": "https:\/\/ide.iotcrafter.com\1/' $OPROG_BOARDCONF
+	sed -i 's/"server"[^"]*"[^"]*\(".*\)$/"server": "https:\/\/ide.iotcrafter.com\1/' $IOTC_BOARDCONF
 
 	# read data
-	RB_FILE=$OPROG_DATA
+	RB_FILE=$IOTC_DATA
 	RB_START_POS=0
 	RB_BYTE=
 	RB_END_POS=
@@ -326,11 +326,11 @@ process_oprog_data()
 	done
 
 	# Verify and use/reject
-	if [ "$sig" = "$OPROG_SIGNATURE" -o "$sig" = "$OPROG_SIGNATURE_LOCAL" ]; then
+	if [ "$sig" = "$IOTC_SIGNATURE" -o "$sig" = "$IOTC_SIGNATURE_LOCAL" ]; then
 		echo "iotcrafter signature found"
 		setup_key $key
 		setup_network "$ssid" "$pwd"
-		if [ "$sig" = "$OPROG_SIGNATURE_LOCAL" ]; then
+		if [ "$sig" = "$IOTC_SIGNATURE_LOCAL" ]; then
 			switch_config_local
 		fi
 	fi
@@ -366,8 +366,8 @@ init_bb ()
 		reboot_board
 	fi
 
-	save_oprog_data "$ROOT_DEV" "$ROOT_PART_END"
-	process_oprog_data
+	save_iotc_data "$ROOT_DEV" "$ROOT_PART_END"
+	process_iotc_data
 
 	sync
 	echo "IOTC init done."
@@ -380,8 +380,8 @@ init_bb ()
 # $2 - root_part_end
 init_rpi()
 {
-	save_oprog_data "$1" "$2"
-	process_oprog_data
+	save_iotc_data "$1" "$2"
+	process_iotc_data
 }
 
 # $1 - key (mandatory)
@@ -413,7 +413,7 @@ else
 
 	case "$1" in
 		test)
-			process_oprog_data
+			process_iotc_data
 			exit 0
 		;;
 		local|production)
