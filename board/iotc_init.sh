@@ -143,27 +143,6 @@ version_ge() {
   test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" = "$1";
 }
 
-bb_oprog_timer_deb_postinst ()
-{
-  BASEVERS=4.1
-  # BeagleBone stuff
-    # Disable HDMI
-    BBBFILE=/boot/uEnv.txt
-    if [ "$BOARD" = "TI_AM335x_BeagleBone_Black" ]; then
-      sed -i -e '/emmc-overlay.dtb/s/#//' $BBBFILE
-    fi
-    # Make loading kernel overlays on boot
-    CAPEFILE=/etc/default/capemgr
-    KERNVERS=`uname -r` # get kernel version
-    if version_ge $KERNVERS $BASEVERS; then
-      sed -i -e '/CAPE=$/s/=/=BB-ADC,am33xx_pwm,BB-PWM0,BB-PWM1,BB-PWM2,BB-W1-P8.19/' $CAPEFILE
-    else
-      # unexport GPIOs for old .img
-      sed -i -e '/^cmdline.*cape_universal/s/quiet /quiet\n#/' $BBBFILE
-      sed -i -e '/CAPE=$/s/=/=BB-ADC,BB-PWM,BB-W1-P8.19/' $CAPEFILE
-    fi
-}
-
 enable_sysrq()
 {
 	echo 1 > /proc/sys/kernel/sysrq
@@ -369,7 +348,6 @@ init_bb ()
 		sed -i 's/ init=\/opt\/iotc\/bin\/iotc_init.sh//' /boot/uEnv.txt
 		echo "removed self from uEnv.txt"
 	fi
-	chmod -x /opt/iotc/bin/iotc_init.sh
 	sync
 
 	enable_sysrq
@@ -390,10 +368,6 @@ init_bb ()
 
 	save_oprog_data "$ROOT_DEV" "$ROOT_PART_END"
 	process_oprog_data
-
-	if echo "$BOARD" | grep -qE '(Beagle|Pocket)Bone'; then
-		bb_oprog_timer_deb_postinst
-	fi
 
 	sync
 	echo "IOTC init done."
