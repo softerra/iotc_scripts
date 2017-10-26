@@ -20,7 +20,9 @@
 #	- wifi ssid and pass -> /etc/network/instarfaces
 #	- signature	-> selects between local or production options
 
-iotc_init_version=1
+# Inrement the number evry time you change commit
+# May be substituted by user with git revision hash
+iotc_init_version=2
 
 IOTC_SIGNATURE='iotcrafter.com'
 IOTC_SIGNATURE_LOCAL='softerra.llc'
