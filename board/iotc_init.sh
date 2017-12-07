@@ -35,7 +35,7 @@ BOARD=
 IOTC_WLAN_FORCE_IFUP=1
 
 CONF_BAK_DIR=/opt/iotc/run/conf.back
-CONF_LOCAL_APT_SOURCE="http:\/\/192.168.101.103\/iotc"
+CONF_LOCAL_APT_SOURCE="http:\/\/192.168.101.103\/jenkins"
 CONF_LOCAL_NODE_OTA="http:\/\/192.168.101.103\/iotc-ota\/"
 CONF_LOCAL_SERVER="http:\/\/192.168.101.105:9000"
 
