@@ -435,15 +435,21 @@ else
 		;;
 	esac
 
-	case "$BOARD" in
-		"NextThing_C.H.I.P.")
-			init_chip "$@"
-		;;
+	# try doing init only when N of args > 1
+	if [ $# -gt 1 ]; then
+		case "$BOARD" in
+			"NextThing_C.H.I.P.")
+				init_chip "$@"
+			;;
 
-		*)
-			init_rpi "$@"
-		;;
-	esac
+			*)
+				init_rpi "$@"
+			;;
+		esac
+	else
+		show_config
+		exit 0
+	fi
 	echo "IOTC init done."
 fi
 
