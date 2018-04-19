@@ -339,8 +339,28 @@ process_iotc_data()
 	echo "iotcrafter data processed"
 }
 
+# Extend SD-card rootfs partition (BBB)
+grow_partition()
+{
+	echo "Resize root partition... ${ROOT_PART_DEV}"
+
+	echo $ROOT_PART_DEV > /resizerootfs
+	sync
+
+	sed -e 's/[[:space:]]*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | /sbin/fdisk ${ROOT_DEV}
+            d                   # delete partition
+            n                   # re-create
+            p                   # .. primary
+            $ROOT_PART_NUM      # .. with number
+            $ROOT_PART_START    # specify old start sector
+                                # default, extend partition to the end of disk
+            a                   # toogle bootable flag
+            w                   # write and exit
+EOF
+}
+
 # no params
-init_bb ()
+init_bb()
 {
 	mount / -o remount,rw
 	echo "remount / rw rc=$?"
@@ -373,6 +393,9 @@ init_bb ()
 
 	sync
 	echo "IOTC init done."
+
+	grow_partition
+
 	reboot_board
 
 	return 0
