@@ -284,7 +284,7 @@ setup_network()
 save_iotc_data()
 {
 	skipbs=$(($2+1)); dd if=$1 of=$IOTC_DATA bs=512 count=1 skip=$skipbs
-	echo "iotcdata.bin saved"
+	echo "iotcdata.bin saved (from $1, skip=$skipbs)"
 }
 
 process_iotc_data()
