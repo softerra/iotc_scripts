@@ -27,12 +27,13 @@ iotc_init_version=2
 IOTC_SIGNATURE='iotcrafter.com'
 IOTC_SIGNATURE_LOCAL='softerra.llc'
 IOTC_DATA=/opt/iotc/run/iotcdata.bin
-IOTC_CONNMAN=/opt/iotc/run/iotc.connman
+IOTC_CONNMAN=/var/lib/connman/iotcrafter_conn.config
 IOTC_BOARDCONF=/opt/iotc/etc/boardconfig.json
 INTERFACES=/etc/network/interfaces
+CONNMAN_SERVICE=/etc/systemd/system/multi-user.target.wants/connman.service
 BOARD=
 # use ifup even for the system with connman
-IOTC_WLAN_FORCE_IFUP=1
+IOTC_WLAN_FORCE_IFUP=0
 
 CONF_BAK_DIR=/opt/iotc/run/conf.back
 CONF_LOCAL_APT_SOURCE="http:\/\/192.168.101.103\/jenkins"
@@ -243,13 +244,28 @@ NetworkInterfaceBlacklist=wlan0
 	ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 }
 
+wifi_disable_ifup()
+{
+	sed -r -i '
+		s/^(allow.*?wlan.*?)$/#\1/
+		/^iface wlan/,/^\s*$/ {
+			s/^([^#].*?)$/#\1/
+		}
+	' $INTERFACES
+}
+
 # $1 - ssid
 # $2 - pwd
 wifi_configure_connman()
 {
-	echo "WLAN_SSID='$1'" > $IOTC_CONNMAN
-	echo "WLAN_PWD='$2'" >> $IOTC_CONNMAN
-	echo "wifi credentials saved for connman"
+	cat > $IOTC_CONNMAN <<EOF
+[service_iotcrafter_conn]
+Type=wifi
+Name=$1
+Passphrase=$2
+IPv4=dhcp
+EOF
+	echo "setup wifi connman connection"
 }
 
 # $1 - key (required)
@@ -271,14 +287,26 @@ setup_network()
 		return
 	fi
 
-	if command -v connmand > /dev/null; then
+	if command -v connmand > /dev/null && [ -L $CONNMAN_SERVICE ]; then
 		if [ "$IOTC_WLAN_FORCE_IFUP" = "1" ]; then
+			# == eth controlled by connman, wlan - by ifup ==
+			# works on BeagleBone (BBGW) with some issues:
+			# as far as device start and wlan0 is up dhclient creates correct resolv.conf
+			# but connmand then overwrites it with enpty one, so connection to iotcrafter
+			# may not happen until dhclient renews resolv.conf
 			wifi_configure_ifup "$1" "$2"
 			wifi_disable_connman
 		else
+			# == eth and wlan controlled by connman ==
+			# works on BeagleBone with different issues:
+			# - no auto reconnect eth, wlan after connection loss
+			# - sometimes fail to connect via hot plugged eth, wlan
+			# - sometimes fail to connect via USB-wifi plugged before device start
 			wifi_configure_connman "$1" "$2"
+			wifi_disable_ifup
 		fi
-	else
+	else	# connman is not installed or disabled and thus not used
+		# == eth and wlan controlled by ifup ==
 		wifi_configure_ifup "$1" "$2"
 	fi
 }
