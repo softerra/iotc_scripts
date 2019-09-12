@@ -41,6 +41,8 @@ CONF_LOCAL_SERVER="http:\/\/192.168.101.105:9000"
 
 CONF_MODE=
 
+INIT_OPTION=
+
 get_board()
 {
 	BOARD=$(cat /proc/device-tree/model | sed "s/ /_/g" | tr -d '\000')
@@ -154,7 +156,7 @@ reboot_board ()
 {
   sync
   echo "Rebooting.."
-#  sleep 5
+  sleep 3
   echo b > /proc/sysrq-trigger
   exit 0
 }
@@ -284,7 +286,8 @@ setup_network()
 save_iotc_data()
 {
 	skipbs=$(($2+1))
-	dd if=$1 of=$IOTC_DATA bs=512 count=1 skip=$skipbs
+	echo "saving iotcdata.bin from $1, offs=$skipbs"
+	dd if=$1 of=$IOTC_DATA bs=512 count=1 skip=$skipbs || return $?
 	# clean the data beyond the fs
 	echo | dd of=$1 bs=512 count=1 seek=$skipbs conv=sync
 	echo "iotcdata.bin saved (from $1, skip=$skipbs)"
@@ -307,7 +310,7 @@ process_iotc_data()
 	pwd=
 
 	i=0
-	while [ $i -lt 4 ]; do
+	while [ $i -lt 5 ]; do
 		read_zstring
 		case "$i" in
 			0)
@@ -322,7 +325,11 @@ process_iotc_data()
 			3)
 				pwd="$RB_STR"
 			;;
+			4)
+				INIT_OPTION="$RB_STR"
+			;;
 		esac
+		#echo "iotcdata[$i]='$RB_STR'"
 		i=$((i+1))
 		if [ "$RB_BYTE" = "" ]; then
 			break
@@ -391,13 +398,26 @@ init_bb()
 		reboot_board
 	fi
 
-	save_iotc_data "$ROOT_DEV" "$ROOT_PART_END"
+	save_iotc_data "$ROOT_DEV" "$ROOT_PART_END" || ( echo "IoTC init failed, try again.." && reboot_board )
 	process_iotc_data
 
 	sync
 	echo "IOTC init done."
 
-	grow_partition
+	if [ "$INIT_OPTION" = "001" ]; then
+		if [ -f /boot/uEnv.txt ]; then
+			sed -i 's/^\(cmdline.*\)$/#\1/' /boot/uEnv.txt
+			sed -i 's/^#\(cmdline.*init-eMMC-flasher.*\)$/\1/' /boot/uEnv.txt
+			sync
+			echo "==========================================================="
+			echo "eMMC flasher enabled."
+			echo "The board's internal flash will be re-flashed after reboot."
+			echo "==========================================================="
+			#cat /boot/uEnv.txt
+		fi
+	else
+		grow_partition
+	fi
 
 	reboot_board
 
