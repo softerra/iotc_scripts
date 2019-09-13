@@ -22,7 +22,7 @@
 
 # Inrement the number evry time you change commit
 # May be substituted by user with git revision hash
-iotc_init_version=4
+iotc_init_version=5
 
 IOTC_SIGNATURE='iotcrafter.com'
 IOTC_SIGNATURE_LOCAL='softerra.llc'
@@ -199,6 +199,7 @@ read_zstring()
 # $2 - pwd
 wifi_configure_ifup()
 {
+	echo "configure ifup for wlan0"
 	#TODO: use 'wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf'
 	# and wpa_passphrase to produce psk=xxx
 
@@ -228,6 +229,7 @@ iface wlan0 inet dhcp\\
 
 wifi_disable_connman()
 {
+	echo "disable conman for wlan0"
 	conf=/etc/connman/main.conf
 
 	if ! grep -q 'NetworkInterfaceBlacklist=' $conf; then
@@ -249,6 +251,7 @@ NetworkInterfaceBlacklist=wlan0
 # $* - interface names, e.g. eth wlan
 if_disable_ifup()
 {
+	echo "disable ifup for $*"
 	for devname in $*; do
 		sed -r -i '
 			s/^(allow.*?'${devname}'.*?)$/#\1/
@@ -259,11 +262,13 @@ if_disable_ifup()
 		' $INTERFACES
 		sed -i 's/\(^[[:space:]]*[^#[:space:]].*\)/#\1/' ./${INTERFACES}.d/${devname}* 2>/dev/null || true
 	done
+	echo "disable ifup for $* done"
 }
 
 # $* - interface names, e.g. eth0 eth1 via separate files in interfaces.d
 if_configure_ifup()
 {
+	echo "configure ifup for $*"
 	for devname in $*; do
 		cat > ${INTERFACES}.d/$devname << EOF
 allow-hotplug ${devname}
@@ -277,12 +282,14 @@ EOF
 	if ! grep -q '^[[:space:]]*source-directory[[:space:]]*'${INTERFACES}'.d' ${INTERFACES}; then
 		echo -e "\nsource-directory ${INTERFACES}.d" >> ${INTERFACES}
 	fi
+	echo "configure ifup for $* done"
 }
 
 # $1 - ssid
 # $2 - pwd
 wifi_configure_connman()
 {
+	echo "configure conman for wifi"
 	cat > $IOTC_CONNMAN <<EOF
 [service_iotcrafter_conn]
 Type=wifi
@@ -308,12 +315,15 @@ setup_key()
 # $2 - pwd (required)
 setup_network()
 {
+	echo "setting up network.."
 	if [ "$1" = "" -o "$2" = "" ]; then
 		return
 	fi
 
+	echo -n "check connman or ifup.."
 	if command -v connmand > /dev/null && [ -L $CONNMAN_SERVICE ]; then
 		if [ "$IOTC_WLAN_FORCE_IFUP" = "1" ]; then
+			echo "connman, forced ifup for wifi"
 			# == eth controlled by connman, wlan - by ifup ==
 			# works on BeagleBone (BBGW) with some issues:
 			# as far as device start and wlan0 is up dhclient creates correct resolv.conf
@@ -322,6 +332,7 @@ setup_network()
 			wifi_configure_ifup "$1" "$2"
 			wifi_disable_connman
 		else
+			echo "connman"
 			# == eth and wlan controlled by connman ==
 			# works on BeagleBone with different issues:
 			# - no auto reconnect eth, wlan after connection loss
@@ -331,6 +342,7 @@ setup_network()
 			if_disable_ifup eth wlan
 		fi
 	else	# connman is not installed or disabled and thus not used
+		echo "ifup"
 		# == eth and wlan controlled by ifup ==
 		wifi_configure_ifup "$1" "$2"
 		# disable possible default config and enable via separate files
