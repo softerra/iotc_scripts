@@ -22,7 +22,7 @@
 
 # Inrement the number evry time you change commit
 # May be substituted by user with git revision hash
-iotc_init_version=3
+iotc_init_version=4
 
 IOTC_SIGNATURE='iotcrafter.com'
 IOTC_SIGNATURE_LOCAL='softerra.llc'
@@ -246,14 +246,37 @@ NetworkInterfaceBlacklist=wlan0
 	ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules
 }
 
-wifi_disable_ifup()
+# $* - interface names, e.g. eth wlan
+if_disable_ifup()
 {
-	sed -r -i '
-		s/^(allow.*?wlan.*?)$/#\1/
-		/^iface wlan/,/^\s*$/ {
-			s/^([^#].*?)$/#\1/
-		}
-	' $INTERFACES
+	for devname in $*; do
+		sed -r -i '
+			s/^(allow.*?'${devname}'.*?)$/#\1/
+			s/^(auto.*?'${devname}'.*?)$/#\1/
+			/^iface '${devname}'/,/^\s*$/ {
+				s/^([^#].*?)$/#\1/
+			}
+		' $INTERFACES
+		sed -i 's/\(^[[:space:]]*[^#[:space:]].*\)/#\1/' ./${INTERFACES}.d/${devname}* 2>/dev/null || true
+	done
+}
+
+# $* - interface names, e.g. eth0 eth1 via separate files in interfaces.d
+if_configure_ifup()
+{
+	for devname in $*; do
+		cat > ${INTERFACES}.d/$devname << EOF
+allow-hotplug ${devname}
+iface ${devname} inet dhcp
+EOF
+		chmod 644 ${INTERFACES}.d/$devname
+	done
+
+	#ensure interfaces.d is included by interfaces
+	sed -i 's/^#[#[:space:]]*\(source-directory[[:space:]]*\/etc\/network\/interfaces\.d\).*$/\1/' ${INTERFACES}
+	if ! grep -q '^[[:space:]]*source-directory[[:space:]]*'${INTERFACES}'.d' ${INTERFACES}; then
+		echo -e "\nsource-directory ${INTERFACES}.d" >> ${INTERFACES}
+	fi
 }
 
 # $1 - ssid
@@ -305,11 +328,14 @@ setup_network()
 			# - sometimes fail to connect via hot plugged eth, wlan
 			# - sometimes fail to connect via USB-wifi plugged before device start
 			wifi_configure_connman "$1" "$2"
-			wifi_disable_ifup
+			if_disable_ifup eth wlan
 		fi
 	else	# connman is not installed or disabled and thus not used
 		# == eth and wlan controlled by ifup ==
 		wifi_configure_ifup "$1" "$2"
+		# disable possible default config and enable via separate files
+		if_disable_ifup eth
+		if_configure_ifup eth0 eth1
 	fi
 }
 
