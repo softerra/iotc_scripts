@@ -203,11 +203,13 @@ wifi_configure_ifup()
 	# and wpa_passphrase to produce psk=xxx
 
 	if ! grep -q '^iface\s*wlan0' $INTERFACES; then
-		echo "" >> $INTERFACES
-		echo "allow-hotplug wlan0" >> $INTERFACES
-		echo "iface wlan0 inet dhcp" >> $INTERFACES
-		echo "    wpa-ssid \"$1\"" >> $INTERFACES
-		echo "    wpa-psk \"$2\"" >> $INTERFACES
+		cat >> $INTERFACES <<END
+
+allow-hotplug wlan0
+iface wlan0 inet dhcp
+    wpa-ssid "$1"
+    wpa-psk "$2"
+END
 	else
 		sed -i "/^iface\s*wlan0\s*/, /^\s*\$/ {
             /^iface\s*wlan0\s*/ {
