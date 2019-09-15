@@ -199,6 +199,9 @@ read_zstring()
 # $2 - pwd
 wifi_configure_ifup()
 {
+	if [ "$1" = "" ]; then
+		return
+	fi
 	echo "configure ifup for wlan0"
 	#TODO: use 'wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf'
 	# and wpa_passphrase to produce psk=xxx
@@ -280,7 +283,8 @@ EOF
 	#ensure interfaces.d is included by interfaces
 	sed -i 's/^#[#[:space:]]*\(source-directory[[:space:]]*\/etc\/network\/interfaces\.d\).*$/\1/' ${INTERFACES}
 	if ! grep -q '^[[:space:]]*source-directory[[:space:]]*'${INTERFACES}'.d' ${INTERFACES}; then
-		echo -e "\nsource-directory ${INTERFACES}.d" >> ${INTERFACES}
+		echo "" >> ${INTERFACES}
+		echo "source-directory ${INTERFACES}.d" >> ${INTERFACES}
 	fi
 	echo "configure ifup for $* done"
 }
@@ -289,6 +293,9 @@ EOF
 # $2 - pwd
 wifi_configure_connman()
 {
+	if [ "$1" = "" ]; then
+		return
+	fi
 	echo "configure conman for wifi"
 	cat > $IOTC_CONNMAN <<EOF
 [service_iotcrafter_conn]
@@ -315,11 +322,7 @@ setup_key()
 # $2 - pwd (required)
 setup_network()
 {
-	echo "setting up network.."
-	if [ "$1" = "" -o "$2" = "" ]; then
-		return
-	fi
-
+	echo "setting up network"
 	echo -n "check connman or ifup.."
 	if command -v connmand > /dev/null && [ -L $CONNMAN_SERVICE ]; then
 		if [ "$IOTC_WLAN_FORCE_IFUP" = "1" ]; then
@@ -345,6 +348,9 @@ setup_network()
 		echo "ifup"
 		# == eth and wlan controlled by ifup ==
 		wifi_configure_ifup "$1" "$2"
+		if command -v connmand > /dev/null; then
+			wifi_disable_connman
+		fi
 		# disable possible default config and enable via separate files
 		if_disable_ifup eth
 		if_configure_ifup eth0 eth1
