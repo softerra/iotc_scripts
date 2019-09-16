@@ -22,7 +22,7 @@
 
 # Inrement the number evry time you change commit
 # May be substituted by user with git revision hash
-iotc_init_version=5
+iotc_init_version=6
 
 IOTC_SIGNATURE='iotcrafter.com'
 IOTC_SIGNATURE_LOCAL='softerra.llc'
@@ -33,7 +33,7 @@ INTERFACES=/etc/network/interfaces
 CONNMAN_SERVICE=/etc/systemd/system/multi-user.target.wants/connman.service
 BOARD=
 # use ifup even for the system with connman
-IOTC_WLAN_FORCE_IFUP=${IOTC_WLAN_FORCE_IFUP:-0}
+IOTC_WLAN_FORCE_IFUP=0
 
 CONF_BAK_DIR=/opt/iotc/run/conf.back
 CONF_LOCAL_APT_SOURCE="http:\/\/192.168.101.103\/jenkins"
