@@ -478,7 +478,11 @@ init_bb()
 	sync
 	echo "IOTC init done."
 
-	if [ "$INIT_OPTION" = "001" ]; then
+	# Process INIT_OPTION
+	# Flags:
+	#   0x01: BBB only: re-flash internal eMMC
+	#   0x02: RPI Only: enable uart
+	if [ $((INIT_OPTION & 1)) -eq 1 ]; then
 		if [ -f /boot/uEnv.txt ]; then
 			sed -i 's/^\(cmdline.*\)$/#\1/' /boot/uEnv.txt
 			sed -i 's/^#\(cmdline.*init-eMMC-flasher.*\)$/\1/' /boot/uEnv.txt
@@ -504,6 +508,19 @@ init_rpi()
 {
 	save_iotc_data "$1" "$2"
 	process_iotc_data
+
+	# Process INIT_OPTION
+	# Flags:
+	#   0x01: BBB only: re-flash internal eMMC
+	#   0x02: RPI Only: enable uart
+	if [ $((INIT_OPTION & 2)) -eq 2 ]; then
+		if [ -f /boot/config.txt ]; then
+			sed -r -i 's/^#?enable_uart=.*$/enable_uart=1/' /boot/config.txt
+			grep -q '^enable_uart=' /boot/config.txt || \
+				sed -i '$ a \enable_uart=1' /boot/config.txt
+			sync
+		fi
+	fi
 }
 
 # $1 - key (mandatory)
