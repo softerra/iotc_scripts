@@ -44,10 +44,12 @@ CONF_MODE=
 
 INIT_OPTION=
 
+LOG=/opt/iotc/log/iotc_init.log
+
 get_board()
 {
 	BOARD=$(cat /proc/device-tree/model | sed "s/ /_/g" | tr -d '\000')
-	echo "Board: '$BOARD', mypid=$$"
+	echo "Board: '$BOARD', mypid=$$" | tee -a $LOG
 }
 get_conf_mode()
 {
@@ -64,7 +66,7 @@ backup_item()
 switch_config_local()
 {
 	if [ -d "$CONF_BAK_DIR" ]; then
-		echo "$CONF_BAK_DIR dir found: seems already in local confguration mode"
+		echo "$CONF_BAK_DIR dir found: seems already in local confguration mode" | tee -a $LOG
 		return 0
 	fi
 
@@ -75,7 +77,7 @@ switch_config_local()
 	sed -i 's/http.*\(\/[[:alpha:]]*\)/'$CONF_LOCAL_APT_SOURCE'\1/' /etc/apt/sources.list.d/iotcrafter.list
 	sed -i 's/^SOURCE=.*$/SOURCE='${CONF_LOCAL_NODE_OTA}'/' /etc/default/iotc_updater
 	sed -i 's/"server"[^"]*"[^"]*\(".*\)$/"server": "'${CONF_LOCAL_SERVER}'\1/' /opt/iotc/etc/boardconfig.json
-	echo "Config switched to Local"
+	echo "Config switched to Local" | tee -a $LOG
 }
 
 switch_config_production()
@@ -84,7 +86,7 @@ switch_config_production()
 		(cd $CONF_BAK_DIR;\
 			cp -Rf * /;)
 		rm -rf $CONF_BAK_DIR
-		echo "Config switched to Production"
+		echo "Config switched to Production" | tee -a $LOG
 	fi
 }
 
@@ -156,7 +158,7 @@ enable_sysrq()
 reboot_board ()
 {
   sync
-  echo "Rebooting.."
+  echo "Rebooting.." | tee -a $LOG
   sleep 3
   echo b > /proc/sysrq-trigger
   exit 0
@@ -202,7 +204,7 @@ wifi_configure_ifup()
 	if [ "$1" = "" ]; then
 		return
 	fi
-	echo "configure ifup for wlan0"
+	echo "configure ifup for wlan0" | tee -a $LOG
 	#TODO: use 'wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf'
 	# and wpa_passphrase to produce psk=xxx
 
@@ -232,7 +234,7 @@ iface wlan0 inet dhcp\\
 
 wifi_disable_connman()
 {
-	echo "disable conman for wlan0"
+	echo "disable conman for wlan0" | tee -a $LOG
 	conf=/etc/connman/main.conf
 
 	if ! grep -q 'NetworkInterfaceBlacklist=' $conf; then
@@ -254,7 +256,7 @@ NetworkInterfaceBlacklist=wlan0
 # $* - interface names, e.g. eth wlan
 if_disable_ifup()
 {
-	echo "disable ifup for $*"
+	echo "disable ifup for $*" | tee -a $LOG
 	for devname in $*; do
 		sed -r -i '
 			s/^(allow.*?'${devname}'.*?)$/#\1/
@@ -265,13 +267,13 @@ if_disable_ifup()
 		' $INTERFACES
 		sed -i 's/\(^[[:space:]]*[^#[:space:]].*\)/#\1/' ./${INTERFACES}.d/${devname}* 2>/dev/null || true
 	done
-	echo "disable ifup for $* done"
+	echo "disable ifup for $* done" | tee -a $LOG
 }
 
 # $* - interface names, e.g. eth0 eth1 via separate files in interfaces.d
 if_configure_ifup()
 {
-	echo "configure ifup for $*"
+	echo "configure ifup for $*" | tee -a $LOG
 	for devname in $*; do
 		cat > ${INTERFACES}.d/$devname << EOF
 allow-hotplug ${devname}
@@ -286,7 +288,7 @@ EOF
 		echo "" >> ${INTERFACES}
 		echo "source-directory ${INTERFACES}.d" >> ${INTERFACES}
 	fi
-	echo "configure ifup for $* done"
+	echo "configure ifup for $* done" | tee -a $LOG
 }
 
 # $1 - ssid
@@ -296,7 +298,7 @@ wifi_configure_connman()
 	if [ "$1" = "" ]; then
 		return
 	fi
-	echo "configure conman for wifi"
+	echo "configure conman for wifi" | tee -a $LOG
 	cat > $IOTC_CONNMAN <<EOF
 [service_iotcrafter_conn]
 Type=wifi
@@ -304,7 +306,7 @@ Name=$1
 Passphrase=$2
 IPv4=dhcp
 EOF
-	echo "setup wifi connman connection"
+	echo "setup wifi connman connection" | tee -a $LOG
 }
 
 # $1 - key (required)
@@ -315,18 +317,18 @@ setup_key()
 	fi
 
 	sed -i 's/"key"[^"]*"[^"]*\(".*\)$/"key": "'$1'\1/' $IOTC_BOARDCONF
-	echo "iotc key set up"
+	echo "iotc key set up" | tee -a $LOG
 }
 
 # $1 - ssid (required)
 # $2 - pwd (required)
 setup_network()
 {
-	echo "setting up network"
-	echo -n "check connman or ifup.."
+	echo "setting up network" | tee -a $LOG
+	echo -n "check connman or ifup.." | tee -a $LOG
 	if command -v connmand > /dev/null && [ -L $CONNMAN_SERVICE ]; then
 		if [ "$IOTC_WLAN_FORCE_IFUP" = "1" ]; then
-			echo "connman, forced ifup for wifi"
+			echo "connman, forced ifup for wifi" | tee -a $LOG
 			# == eth controlled by connman, wlan - by ifup ==
 			# works on BeagleBone (BBGW) with some issues:
 			# as far as device start and wlan0 is up dhclient creates correct resolv.conf
@@ -335,7 +337,7 @@ setup_network()
 			wifi_configure_ifup "$1" "$2"
 			wifi_disable_connman
 		else
-			echo "connman"
+			echo "connman" | tee -a $LOG
 			# == eth and wlan controlled by connman ==
 			# works on BeagleBone with different issues:
 			# - no auto reconnect eth, wlan after connection loss
@@ -345,7 +347,7 @@ setup_network()
 			if_disable_ifup eth wlan
 		fi
 	else	# connman is not installed or disabled and thus not used
-		echo "ifup"
+		echo "ifup" | tee -a $LOG
 		# == eth and wlan controlled by ifup ==
 		wifi_configure_ifup "$1" "$2"
 		if command -v connmand > /dev/null; then
@@ -360,11 +362,11 @@ setup_network()
 save_iotc_data()
 {
 	skipbs=$(($2+1))
-	echo "saving iotcdata.bin from $1, offs=$skipbs"
+	echo "saving iotcdata.bin from $1, offs=$skipbs" | tee -a $LOG
 	dd if=$1 of=$IOTC_DATA bs=512 count=1 skip=$skipbs || return $?
 	# clean the data beyond the fs
 	echo | dd of=$1 bs=512 count=1 seek=$skipbs conv=sync
-	echo "iotcdata.bin saved (from $1, skip=$skipbs)"
+	echo "iotcdata.bin saved (from $1, skip=$skipbs)" | tee -a $LOG
 }
 
 process_iotc_data()
@@ -413,20 +415,20 @@ process_iotc_data()
 
 	# Verify and use/reject
 	if [ "$sig" = "$IOTC_SIGNATURE" -o "$sig" = "$IOTC_SIGNATURE_LOCAL" ]; then
-		echo "iotcrafter signature found"
+		echo "iotcrafter signature found" | tee -a $LOG
 		setup_key $key
 		setup_network "$ssid" "$pwd"
 		if [ "$sig" = "$IOTC_SIGNATURE_LOCAL" ]; then
 			switch_config_local
 		fi
 	fi
-	echo "iotcrafter data processed"
+	echo "iotcrafter data processed" | tee -a $LOG
 }
 
 # Extend SD-card rootfs partition (BBB)
 grow_partition()
 {
-	echo "Resize root partition... ${ROOT_PART_DEV}"
+	echo "Resize root partition... ${ROOT_PART_DEV}" | tee -a $LOG
 
 	echo $ROOT_PART_DEV > /resizerootfs
 	sync
@@ -447,19 +449,19 @@ EOF
 init_bb()
 {
 	mount / -o remount,rw
-	echo "remount / rw rc=$?"
+	echo "remount / rw rc=$?" | tee -a $LOG
 
 	# Beagle Bone
 	if [ -f /boot/uEnv.txt ]; then
 		sed -i 's/ init=\/opt\/iotc\/bin\/iotc_init.sh//' /boot/uEnv.txt
-		echo "removed self from uEnv.txt"
+		echo "removed self from uEnv.txt" | tee -a $LOG
 	fi
 	sync
 
 	enable_sysrq
 
 	if ! check_commands; then
-		echo $FAIL_REASON
+		echo $FAIL_REASON | tee -a $LOG
 		reboot_board
 	fi
 
@@ -468,15 +470,15 @@ init_bb()
 	get_variables
 
 	if ! check_variables; then
-		echo $FAIL_REASON
+		echo $FAIL_REASON | tee -a $LOG
 		reboot_board
 	fi
 
-	save_iotc_data "$ROOT_DEV" "$ROOT_PART_END" || ( echo "IoTC init failed, try again.." && reboot_board )
+	save_iotc_data "$ROOT_DEV" "$ROOT_PART_END" || ( echo "IoTC init failed, try again.." | tee -a $LOG && reboot_board )
 	process_iotc_data
 
 	sync
-	echo "IOTC init done."
+	echo "IOTC init done." | tee -a $LOG
 
 	# Process INIT_OPTION
 	# Flags:
@@ -487,10 +489,10 @@ init_bb()
 			sed -i 's/^\(cmdline.*\)$/#\1/' /boot/uEnv.txt
 			sed -i 's/^#\(cmdline.*init-eMMC-flasher.*\)$/\1/' /boot/uEnv.txt
 			sync
-			echo "==========================================================="
-			echo "eMMC flasher enabled."
-			echo "The board's internal flash will be re-flashed after reboot."
-			echo "==========================================================="
+			echo "===========================================================" | tee -a $LOG
+			echo "eMMC flasher enabled." | tee -a $LOG
+			echo "The board's internal flash will be re-flashed after reboot." | tee -a $LOG
+			echo "===========================================================" | tee -a $LOG
 			#cat /boot/uEnv.txt
 		fi
 	else
@@ -537,14 +539,14 @@ init_chip()
 
 
 # START
-echo "iotc_init.sh version: ${iotc_init_version}"
+echo "iotc_init.sh version: ${iotc_init_version}" | tee -a $LOG
 get_board
 get_conf_mode
 
 if [ $# -eq 0 ]; then
 	# run as main script(BB, uEnv.txt: init=.../iotc_init.sh)
 	if [ $$ -ne 1 ] || ! grep -q 'init=/opt/iotc/bin/iotc_init.sh' /proc/cmdline; then
-		echo "Error: iotc_init.sh called as not pure init-script - params required"
+		echo "Error: iotc_init.sh called as not pure init-script - params required" | tee -a $LOG
 		exit 1
 	fi
 
@@ -590,7 +592,7 @@ else
 		show_config
 		exit 0
 	fi
-	echo "IOTC init done."
+	echo "IOTC init done." | tee -a $LOG
 fi
 
 exit 0
