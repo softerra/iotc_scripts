@@ -506,6 +506,9 @@ init_bb()
 # $2 - root_part_end
 init_rpi()
 {
+	mount / -o remount,rw
+	mount /boot -o remount,rw
+
 	save_iotc_data "$1" "$2"
 	process_iotc_data
 
