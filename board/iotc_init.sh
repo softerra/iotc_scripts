@@ -523,6 +523,12 @@ init_rpi()
 			sed -r -i 's/^#?enable_uart=.*$/enable_uart=1/' /boot/config.txt
 			grep -q '^enable_uart=' /boot/config.txt || \
 				sed -i '$ a \enable_uart=1' /boot/config.txt
+			# temporary fix for console on RPI3 since ~ 2020-12-02-raspios-buster-armhf-lite.img
+			# additional fixed core frequency
+			sed -r -i 's/^#?core_freq=.*$/core_freq=250/' /boot/config.txt
+			grep -q '^core_freq=' /boot/config.txt || \
+				sed -i '$ a \core_freq=250' /boot/config.txt
+			# commit changes
 			sync
 		fi
 	fi
